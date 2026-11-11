@@ -44,6 +44,7 @@
 7. **Squash and merge**로 병합한다.
 
 `main`과 `develop` 브랜치에는 직접 push하지 않는다.
+merge된 원격 브랜치는 삭제하고 로컬 브랜치는 남겨둔다.
 
 ## 커밋 메시지 규칙
 
