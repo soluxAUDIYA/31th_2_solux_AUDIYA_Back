@@ -20,14 +20,19 @@ public record ApiResponse<T>(
     private static final String OK_CODE = "OK";
     private static final String OK_MESSAGE = "요청이 처리되었습니다.";
 
-    // 데이터가 있는 성공 응답
+    // 기본 성공 응답(OK), 데이터를 담아 반환할 때 사용
     public static <T> ApiResponse<T> ok(T data) {
-        return new ApiResponse<>(true, OK_CODE, OK_MESSAGE, data, null);
+        return of(SuccessCode.OK, data);
     }
 
-    // 데이터가 없는 성공 응답 (data: null)
+    // 데이터가 없는 성공 응답(data: null)
     public static ApiResponse<Void> ok() {
-        return new ApiResponse<>(true, OK_CODE, OK_MESSAGE, null, null);
+        return of(SuccessCode.OK, null);
+    }
+
+    // 성공 코드를 지정하는 성공 응답. OK 외에 CREATED, ACCEPTED 등을 쓸 때 사용
+    public static <T> ApiResponse<T> of(SuccessCode successCode, T data) {
+        return new ApiResponse<>(true, successCode.getCode(), successCode.getMessage(), data, null);
     }
 
     // 오류 코드의 기본 메시지를 사용하는 실패 응답
