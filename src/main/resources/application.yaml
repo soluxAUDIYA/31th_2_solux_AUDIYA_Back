@@ -15,3 +15,26 @@ spring:
       hibernate:
         jdbc:
           time_zone: Asia/Seoul
+
+  # Redis: 인증 구현 시 주석 풀어서 사용
+  # data:
+  #   redis:
+  #     host: ${REDIS_HOST:localhost}
+  #     port: ${REDIS_PORT:6379}
+
+# 헬스체크만 외부에 노출한다
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+# 아래 값은 해당 기능을 구현할 때 주석을 풀어서 사용할 예정
+#
+# app:
+#   jwt:
+#     secret: ${JWT_SECRET}
+#   internal:
+#     api-key: ${INTERNAL_API_KEY}
+#   ai-server:
+#     url: ${AI_SERVER_URL}
