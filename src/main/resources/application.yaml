@@ -31,9 +31,9 @@ management:
 
 # 아래 값은 해당 기능을 구현할 때 주석을 풀어서 사용할 예정
 #
-# app:
-#   jwt:
-#     secret: ${JWT_SECRET}
+app:
+  jwt:
+    secret: ${JWT_SECRET}
 #   internal:
 #     api-key: ${INTERNAL_API_KEY}
 #   ai-server:
