@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -20,7 +21,7 @@ import java.time.LocalDateTime;
 // 귀가 세션 (ERD trip). user는 다른 도메인 엔티티이므로 연관관계 대신 ID만 보관한다.
 @Getter
 @Entity
-@Table(name = "trip")
+@Table(name = "trip", indexes = @Index(name = "idx_trip_user_id_status", columnList = "user_id, status"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Trip extends BaseTimeEntity {
 
