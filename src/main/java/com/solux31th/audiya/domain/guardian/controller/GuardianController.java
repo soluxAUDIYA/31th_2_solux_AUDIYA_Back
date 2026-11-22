@@ -3,6 +3,9 @@ package com.solux31th.audiya.domain.guardian.controller;
 import com.solux31th.audiya.domain.guardian.dto.GuardianSessionRequest;
 import com.solux31th.audiya.domain.guardian.dto.GuardianSessionResponse;
 import com.solux31th.audiya.domain.guardian.service.GuardianService;
+import com.solux31th.audiya.domain.guardian.service.GuardianQueryService;
+import com.solux31th.audiya.domain.guardian.dto.GuardianAlertResponse;
+import com.solux31th.audiya.domain.guardian.dto.GuardianSituationResponse;
 import com.solux31th.audiya.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -16,7 +19,23 @@ import java.time.Instant;
 @RequestMapping("/guardian")
 public class GuardianController {
     private final GuardianService service;
-    public GuardianController(GuardianService service) { this.service = service; }
+    private final GuardianQueryService queryService;
+    public GuardianController(GuardianService service, GuardianQueryService queryService) {
+        this.service = service;
+        this.queryService = queryService;
+    }
+
+    @GetMapping("/alerts/current")
+    public ApiResponse<GuardianAlertResponse> currentAlert(@CookieValue(value = "guardian_session", required = false) String session) {
+        return ApiResponse.ok(queryService.currentAlert(session));
+    }
+
+    @GetMapping("/situation")
+    public ApiResponse<GuardianSituationResponse> situation(@CookieValue(value = "guardian_session", required = false) String session,
+                                                           @RequestParam(required = false) String cursor,
+                                                           @RequestParam(defaultValue = "20") int limit) {
+        return ApiResponse.ok(queryService.situation(session, cursor, limit));
+    }
 
     @PostMapping("/sessions")
     public ResponseEntity<ApiResponse<GuardianSessionResponse>> createSession(@Valid @RequestBody GuardianSessionRequest request) {

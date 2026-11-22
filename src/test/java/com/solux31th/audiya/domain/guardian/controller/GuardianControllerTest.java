@@ -4,6 +4,7 @@ import com.solux31th.audiya.domain.guardian.dto.GuardianSessionResponse;
 import com.solux31th.audiya.domain.guardian.exception.GuardianErrorCode;
 import com.solux31th.audiya.domain.guardian.filter.GuardianCacheControlFilter;
 import com.solux31th.audiya.domain.guardian.service.GuardianService;
+import com.solux31th.audiya.domain.guardian.service.GuardianQueryService;
 import com.solux31th.audiya.global.exception.BusinessException;
 import com.solux31th.audiya.global.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,7 +26,7 @@ class GuardianControllerTest {
 
     @BeforeEach
     void setup() {
-        mvc = MockMvcBuilders.standaloneSetup(new GuardianController(service))
+        mvc = MockMvcBuilders.standaloneSetup(new GuardianController(service, mock(GuardianQueryService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .addFilters(new GuardianCacheControlFilter()).build();
     }
