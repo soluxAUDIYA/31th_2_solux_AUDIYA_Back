@@ -6,6 +6,8 @@ import com.solux31th.audiya.domain.guardian.service.GuardianService;
 import com.solux31th.audiya.domain.guardian.service.GuardianQueryService;
 import com.solux31th.audiya.domain.guardian.dto.GuardianAlertResponse;
 import com.solux31th.audiya.domain.guardian.dto.GuardianSituationResponse;
+import com.solux31th.audiya.domain.guardian.dto.GuardianReportResponse;
+import com.solux31th.audiya.global.response.SuccessCode;
 import com.solux31th.audiya.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -35,6 +37,16 @@ public class GuardianController {
                                                            @RequestParam(required = false) String cursor,
                                                            @RequestParam(defaultValue = "20") int limit) {
         return ApiResponse.ok(queryService.situation(session, cursor, limit));
+    }
+
+    @GetMapping("/report")
+    public ResponseEntity<ApiResponse<GuardianReportResponse>> report(@CookieValue(value = "guardian_session", required = false) String session) {
+        GuardianReportResponse report = queryService.report(session);
+        if (report == null) {
+            return ResponseEntity.accepted().header(HttpHeaders.RETRY_AFTER, "30")
+                    .body(ApiResponse.of(SuccessCode.ACCEPTED, null));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(report));
     }
 
     @PostMapping("/sessions")

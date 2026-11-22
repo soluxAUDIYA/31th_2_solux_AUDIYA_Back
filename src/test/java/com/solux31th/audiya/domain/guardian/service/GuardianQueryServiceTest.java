@@ -25,7 +25,8 @@ class GuardianQueryServiceTest {
     @SuppressWarnings("unchecked") ObjectProvider<GuardianQuerySource> source = mock(ObjectProvider.class);
     GuardianAuthorization checker = mock(GuardianAuthorization.class);
     GuardianQuerySource data = mock(GuardianQuerySource.class);
-    GuardianQueryService service = new GuardianQueryService(sessions, tokens, auth, source);
+    @SuppressWarnings("unchecked") ObjectProvider<GuardianReportSource> reportSource = mock(ObjectProvider.class);
+    GuardianQueryService service = new GuardianQueryService(sessions, tokens, auth, source, reportSource);
     GuardianAccessToken token;
 
     @BeforeEach void setup() {
@@ -86,5 +87,25 @@ class GuardianQueryServiceTest {
         assertEquals(GuardianErrorCode.INVALID_PAGINATION, assertThrows(BusinessException.class, () -> service.situation("secret", null, 101)).getErrorCode());
         assertEquals(GuardianErrorCode.INVALID_PAGINATION, assertThrows(BusinessException.class, () -> service.situation("secret", " ", 20)).getErrorCode());
         verifyNoInteractions(data);
+    }
+    @Test void reportRequiresReportScopeAndAvailableSource() {
+        assertEquals(GuardianErrorCode.FORBIDDEN_SCOPE, assertThrows(BusinessException.class, () -> service.report("secret")).getErrorCode());
+        ReflectionTestUtils.setField(token, "purpose", "TRIP_REPORT");
+        assertEquals(GuardianErrorCode.DATA_UNAVAILABLE, assertThrows(BusinessException.class, () -> service.report("secret")).getErrorCode());
+    }
+
+    @Test void reportDistinguishesTripAndReportStates() {
+        ReflectionTestUtils.setField(token, "purpose", "TRIP_REPORT");
+        GuardianReportSource provider = mock(GuardianReportSource.class);
+        when(reportSource.getIfAvailable()).thenReturn(provider);
+        when(provider.getReport(token)).thenReturn(new GuardianReportSource.ReportResult(GuardianReportSource.Status.NOT_FOUND, null));
+        assertEquals(GuardianErrorCode.TRIP_NOT_FOUND, assertThrows(BusinessException.class, () -> service.report("secret")).getErrorCode());
+        when(provider.getReport(token)).thenReturn(new GuardianReportSource.ReportResult(GuardianReportSource.Status.NOT_COMPLETED, null));
+        assertEquals(GuardianErrorCode.TRIP_NOT_COMPLETED, assertThrows(BusinessException.class, () -> service.report("secret")).getErrorCode());
+        when(provider.getReport(token)).thenReturn(new GuardianReportSource.ReportResult(GuardianReportSource.Status.PENDING, null));
+        assertNull(service.report("secret"));
+        var report = new com.solux31th.audiya.domain.guardian.dto.GuardianReportResponse(null, "COMPLETED", null, null, null, null, null, null);
+        when(provider.getReport(token)).thenReturn(new GuardianReportSource.ReportResult(GuardianReportSource.Status.READY, report));
+        assertEquals(report, service.report("secret"));
     }
 }

@@ -22,11 +22,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class GuardianControllerTest {
     private final GuardianService service = mock(GuardianService.class);
+    private final GuardianQueryService query = mock(GuardianQueryService.class);
     private MockMvc mvc;
 
     @BeforeEach
     void setup() {
-        mvc = MockMvcBuilders.standaloneSetup(new GuardianController(service, mock(GuardianQueryService.class)))
+        mvc = MockMvcBuilders.standaloneSetup(new GuardianController(service, query))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .addFilters(new GuardianCacheControlFilter()).build();
     }
@@ -53,5 +54,13 @@ class GuardianControllerTest {
         mvc.perform(post("/guardian/sessions").servletPath("/guardian/sessions").contentType(MediaType.APPLICATION_JSON).content("{\"token\":\"link\"}"))
                 .andExpect(status().isServiceUnavailable()).andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+    @Test
+    void pendingReportReturnsAcceptedAndRetryAfter() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/guardian/report")
+                        .servletPath("/guardian/report").cookie(new jakarta.servlet.http.Cookie("guardian_session", "secret")))
+                .andExpect(status().isAccepted()).andExpect(header().string("Retry-After", "30"))
+                .andExpect(header().string("Cache-Control", "no-store"));
+        verify(query).report("secret");
     }
 }
