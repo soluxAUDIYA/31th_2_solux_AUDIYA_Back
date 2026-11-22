@@ -11,6 +11,7 @@ import com.solux31th.audiya.domain.trip.exception.TripErrorCode;
 import com.solux31th.audiya.domain.trip.repository.TripRepository;
 import com.solux31th.audiya.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,12 +30,11 @@ public class TripService {
 
     @Transactional
     public TripCreateResponse createTrip(Long userId, TripCreateRequest request) {
-        // TODO: 동시에 두 요청이 들어오면 둘 다 통과할 수 있다. 필요하면 사용자 단위 락 등으로 보완한다.
         if (tripRepository.existsByUserIdAndStatusInAndDeletedAtIsNull(userId, ACTIVE_STATUSES)) {
             throw new BusinessException(TripErrorCode.TRIP_ALREADY_IN_PROGRESS);
         }
 
-        Trip trip = tripRepository.save(Trip.builder()
+        Trip trip = Trip.builder()
                 .userId(userId)
                 .originName(request.originName())
                 .originLat(request.originLat())
@@ -42,9 +42,17 @@ public class TripService {
                 .destinationName(request.destinationName())
                 .destinationLat(request.destinationLat())
                 .destinationLng(request.destinationLng())
-                .build());
+                .build();
 
-        return TripCreateResponse.from(trip);
+        try {
+            // 위 확인을 동시에 통과한 요청은 DB의 UNIQUE 제약(uk_trip_active_user_id)에서 막힌다.
+            return TripCreateResponse.from(tripRepository.saveAndFlush(trip));
+        } catch (DataIntegrityViolationException e) {
+            if (isActiveTripConflict(e)) {
+                throw new BusinessException(TripErrorCode.TRIP_ALREADY_IN_PROGRESS);
+            }
+            throw e;
+        }
     }
 
     // 진행 중인 귀가가 없으면 null
@@ -53,6 +61,11 @@ public class TripService {
                 .findFirstByUserIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtDesc(userId, ACTIVE_STATUSES)
                 .map(trip -> CurrentTripResponse.of(trip, findSelectedRouteId(trip.getId())))
                 .orElse(null);
+    }
+
+    private boolean isActiveTripConflict(DataIntegrityViolationException e) {
+        String message = e.getMostSpecificCause().getMessage();
+        return message != null && message.contains(Trip.ACTIVE_USER_UNIQUE_KEY);
     }
 
     private Long findSelectedRouteId(Long tripId) {
