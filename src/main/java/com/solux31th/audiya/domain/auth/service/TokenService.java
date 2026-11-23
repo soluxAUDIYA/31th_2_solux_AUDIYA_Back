@@ -31,14 +31,13 @@ public class TokenService {
     private static final String FIELD_KEEP_LOGGED_IN = "keepLoggedIn";
 
     // 저장된 해시와 비교해서 같을 때만 새 해시로 바꾸고 만료 시간을 다시 건다 (확인과 교체를 한 번에 처리한다)
-    // 키가 없으면 0. 해시가 다르면(이미 교체된 토큰을 다시 쓴 경우) 그 기기의 세션을 지우고 0
+    // 해시가 다르면 0
     private static final DefaultRedisScript<Long> ROTATE_SCRIPT = new DefaultRedisScript<>("""
             local stored = redis.call('HGET', KEYS[1], 'tokenHash')
             if not stored then
                 return 0
             end
             if stored ~= ARGV[1] then
-                redis.call('DEL', KEYS[1])
                 return 0
             end
             redis.call('HSET', KEYS[1], 'tokenHash', ARGV[2])
