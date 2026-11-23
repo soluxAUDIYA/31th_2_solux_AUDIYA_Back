@@ -6,6 +6,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Locale;
 
 public final class CryptoUtil {
 
@@ -14,9 +15,9 @@ public final class CryptoUtil {
     private CryptoUtil() {
     }
 
-    // 숫자 6자리 인증번호 (앞자리가 0이어도 6자리 유지)
+    // 숫자 6자리 인증번호 (앞자리가 0이어도 6자리 유지, 로캘과 무관하게 ASCII 숫자로 고정)
     public static String randomCode6() {
-        return String.format("%06d", RANDOM.nextInt(1_000_000));
+        return String.format(Locale.ROOT, "%06d", RANDOM.nextInt(1_000_000));
     }
 
     // 추측할 수 없는 무작위 토큰 (256비트, URL-safe)
