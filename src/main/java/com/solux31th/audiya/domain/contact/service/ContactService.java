@@ -107,7 +107,7 @@ public class ContactService {
     return ContactResponse.from(contact);
   }
 
-
+  // 우선순위 변경
   @Transactional
   public ContactResponse updatePriority(
     User user,
