@@ -1,7 +1,10 @@
 package com.solux31th.audiya.domain.auth.controller;
 
+import com.solux31th.audiya.domain.auth.dto.request.LoginRequest;
+import com.solux31th.audiya.domain.auth.dto.request.LogoutRequest;
 import com.solux31th.audiya.domain.auth.dto.request.PhoneVerificationConfirmRequest;
 import com.solux31th.audiya.domain.auth.dto.request.PhoneVerificationRequest;
+import com.solux31th.audiya.domain.auth.dto.request.TokenRefreshRequest;
 import com.solux31th.audiya.domain.auth.dto.response.PhoneVerificationSendResponse;
 import com.solux31th.audiya.domain.auth.dto.response.VerificationTokenResponse;
 import com.solux31th.audiya.domain.auth.service.PhoneVerificationService;
@@ -10,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,5 +54,29 @@ public class AuthController {
     @PostMapping("/signup")
     public ApiResponse<AuthTokenResponse> signup(@Valid @RequestBody SignupRequest request) {
         return ApiResponse.ok(authService.signup(request));
+    }
+
+
+    // 로그인
+    @Operation(summary = "로그인")
+    @PostMapping("/login")
+    public ApiResponse<AuthTokenResponse> login(@Valid @RequestBody LoginRequest request) {
+        return ApiResponse.ok(authService.login(request));
+    }
+
+    // 토큰 재발급
+    @Operation(summary = "토큰 재발급")
+    @PostMapping("/token/refresh")
+    public ApiResponse<AuthTokenResponse> refresh(@Valid @RequestBody TokenRefreshRequest request) {
+        return ApiResponse.ok(authService.refresh(request));
+    }
+
+    // 로그아웃 (Bearer 토큰 필요)
+    @Operation(summary = "로그아웃")
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(@AuthenticationPrincipal Long userId,
+                                    @Valid @RequestBody LogoutRequest request) {
+        authService.logout(userId, request);
+        return ApiResponse.ok();
     }
 }
