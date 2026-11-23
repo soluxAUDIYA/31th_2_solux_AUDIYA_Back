@@ -1,4 +1,4 @@
 package com.solux31th.audiya.domain.auth.dto.response;
 
-public class VerificationTokenResponse {
+public record VerificationTokenResponse(String verificationToken, int expiresInSeconds) {
 }
