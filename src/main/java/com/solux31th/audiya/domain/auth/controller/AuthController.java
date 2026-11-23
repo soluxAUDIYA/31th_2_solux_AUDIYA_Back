@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.servlet.http.HttpServletRequest;
+import com.solux31th.audiya.domain.auth.dto.request.SignupRequest;
+import com.solux31th.audiya.domain.auth.dto.response.AuthTokenResponse;
+import com.solux31th.audiya.domain.auth.service.AuthService;
 
 @Tag(name = "Auth", description = "인증 API")
 @RestController
@@ -23,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 public class AuthController {
 
     private final PhoneVerificationService phoneVerificationService;
+    private final AuthService authService;
 
     // 가입 인증번호 발송
     @Operation(summary = "가입 인증번호 발송", description = "재전송도 같은 API를 호출")
@@ -39,5 +43,12 @@ public class AuthController {
     public ApiResponse<VerificationTokenResponse> confirmSignupCode(
             @Valid @RequestBody PhoneVerificationConfirmRequest request) {
         return ApiResponse.ok(phoneVerificationService.confirmSignupCode(request));
+    }
+
+    // 회원가입
+    @Operation(summary = "회원가입")
+    @PostMapping("/signup")
+    public ApiResponse<AuthTokenResponse> signup(@Valid @RequestBody SignupRequest request) {
+        return ApiResponse.ok(authService.signup(request));
     }
 }
