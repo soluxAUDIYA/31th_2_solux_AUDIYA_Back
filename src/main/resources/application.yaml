@@ -17,10 +17,10 @@ spring:
           time_zone: Asia/Seoul
 
   # Redis: 인증 구현 시 주석 풀어서 사용
-  # data:
-  #   redis:
-  #     host: ${REDIS_HOST:localhost}
-  #     port: ${REDIS_PORT:6379}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 # 헬스체크만 외부에 노출한다
 management:
