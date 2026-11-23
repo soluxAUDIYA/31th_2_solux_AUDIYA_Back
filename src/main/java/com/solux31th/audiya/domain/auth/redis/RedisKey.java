@@ -34,4 +34,9 @@ public final class RedisKey {
     public static String refresh(Long userId, String deviceId) {
         return "refresh:" + userId + ":" + deviceId;
     }
+
+    // 로그인 실패 횟수 (전화번호별)
+    public static String loginFail(String phone) {
+        return "login:fail:" + phone;
+    }
 }
