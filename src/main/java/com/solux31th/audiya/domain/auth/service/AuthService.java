@@ -14,7 +14,11 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -59,11 +63,20 @@ public class AuthService {
         // 인증 완료 토큰은 1회용이므로 가입이 끝나면 삭제한다
         redis.delete(tokenKey);
 
-        // 가입 직후에는 로그인 유지로 처리해서 refresh 토큰을 14일간 둔다
         AuthTokenResponse response = tokenService.issueTokens(user, request.deviceId(), true);
 
-        // 인증 완료 토큰은 토큰 발급까지 끝난 뒤에만 삭제한다 (실패하면 같은 토큰으로 다시 시도할 수 있다)
-        redis.delete(tokenKey);
+        // 인증 완료 토큰은 DB 커밋이 성공한 뒤에만 삭제한다 (커밋이 실패하면 같은 토큰으로 다시 시도할 수 있다)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    redis.delete(tokenKey);
+                } catch (Exception e) {
+                    // 가입은 이미 끝났으므로 응답은 성공으로 두고, 토큰은 유효시간(30분)이 지나면 사라진다
+                    log.warn("가입 인증 토큰 삭제에 실패했습니다.", e);
+                }
+            }
+        });
 
         return response;
     }
