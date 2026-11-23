@@ -29,4 +29,9 @@ public final class RedisKey {
     public static String smsIp(String ip) {
         return "sms:ip:" + ip;
     }
+
+    // refresh 토큰 (해시, 로그인 유지 여부). 기기별로 하나
+    public static String refresh(Long userId, String deviceId) {
+        return "refresh:" + userId + ":" + deviceId;
+    }
 }
