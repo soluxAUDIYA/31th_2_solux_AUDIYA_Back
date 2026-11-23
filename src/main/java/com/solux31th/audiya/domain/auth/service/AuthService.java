@@ -1,6 +1,9 @@
 package com.solux31th.audiya.domain.auth.service;
 
+import com.solux31th.audiya.domain.auth.dto.request.LoginRequest;
+import com.solux31th.audiya.domain.auth.dto.request.LogoutRequest;
 import com.solux31th.audiya.domain.auth.dto.request.SignupRequest;
+import com.solux31th.audiya.domain.auth.dto.request.TokenRefreshRequest;
 import com.solux31th.audiya.domain.auth.dto.response.AuthTokenResponse;
 import com.solux31th.audiya.domain.auth.entity.User;
 import com.solux31th.audiya.domain.auth.exception.AuthErrorCode;
@@ -27,6 +30,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redis;
     private final TokenService tokenService;
+    private final LoginAttemptService loginAttemptService;
 
     // 회원가입
     @Transactional
@@ -77,5 +81,42 @@ public class AuthService {
         });
 
         return response;
+    }
+
+    // 로그인
+    public AuthTokenResponse login(LoginRequest request) {
+        String phone = request.phoneNumber();
+
+        // 잠긴 번호는 비밀번호를 확인하지 않고 바로 거절한다
+        loginAttemptService.checkNotLocked(phone);
+
+        // 없는 번호, 탈퇴한 계정, 틀린 비밀번호는 같은 오류로 응답한다 (가입 여부를 알아낼 수 없게 한다)
+        User user = userRepository.findByPhoneNumberAndDeletedAtIsNull(phone).orElse(null);
+        if (user == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
+            loginAttemptService.recordFailure(phone);
+            throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
+        }
+
+        loginAttemptService.clear(phone);
+        return tokenService.issueTokens(user, request.deviceId(), request.keepLoggedIn());
+    }
+
+    // 토큰 재발급
+    public AuthTokenResponse refresh(TokenRefreshRequest request) {
+        Long userId = tokenService.extractUserId(request.refreshToken());
+
+        // 탈퇴했거나 없는 계정이면 그 기기의 세션도 지우고 거절한다
+        User user = userRepository.findById(userId).filter(u -> u.getDeletedAt() == null).orElse(null);
+        if (user == null) {
+            tokenService.revoke(userId, request.deviceId());
+            throw new BusinessException(AuthErrorCode.REFRESH_TOKEN_INVALID);
+        }
+
+        return tokenService.rotate(user, request.deviceId(), request.refreshToken());
+    }
+
+    // 로그아웃: 이 기기의 refresh 토큰만 삭제한다. 이미 발급된 access 토큰은 만료(30분)될 때까지 유효하다
+    public void logout(Long userId, LogoutRequest request) {
+        tokenService.revoke(userId, request.deviceId());
     }
 }
