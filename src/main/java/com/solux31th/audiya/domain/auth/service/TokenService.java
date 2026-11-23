@@ -45,6 +45,13 @@ public class TokenService {
             return 1
             """, Long.class);
 
+    // 해시, 로그인 유지 여부, 만료 시간을 한 번에 저장한다
+    private static final DefaultRedisScript<Long> ISSUE_SCRIPT = new DefaultRedisScript<>("""
+        redis.call('HSET', KEYS[1], 'tokenHash', ARGV[1], 'keepLoggedIn', ARGV[2])
+        redis.call('PEXPIRE', KEYS[1], ARGV[3])
+        return 1
+        """, Long.class);
+
     private final JwtProvider jwtProvider;
     private final StringRedisTemplate redis;
 
@@ -55,10 +62,10 @@ public class TokenService {
 
         // 같은 기기에서 다시 로그인하면 이전 refresh 토큰은 덮어써서 무효가 된다
         String key = RedisKey.refresh(user.getId(), deviceId);
-        redis.opsForHash().putAll(key, Map.of(
-                FIELD_TOKEN_HASH, CryptoUtil.sha256Hex(refreshToken),
-                FIELD_KEEP_LOGGED_IN, String.valueOf(keepLoggedIn)));
-        redis.expire(key, refreshTtl);
+        redis.execute(ISSUE_SCRIPT, List.of(key),
+                CryptoUtil.sha256Hex(refreshToken),
+                String.valueOf(keepLoggedIn),
+                String.valueOf(refreshTtl.toMillis()));
 
         return toResponse(user, refreshToken, refreshTtl);
     }
