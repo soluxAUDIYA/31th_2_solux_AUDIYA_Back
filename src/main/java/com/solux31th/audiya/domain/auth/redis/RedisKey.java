@@ -1,4 +1,42 @@
 package com.solux31th.audiya.domain.auth.redis;
 
-public class RedisKey {
+public final class RedisKey {
+
+    private RedisKey() {
+    }
+
+    // 가입 인증번호 (해시, 실패 횟수)
+    public static String signupOtp(String phone) {
+        return "otp:signup:" + phone;
+    }
+
+    // 가입 인증번호 재전송 잠금
+    public static String signupResend(String phone) {
+        return "otp:signup:resend:" + phone;
+    }
+
+    // 가입 인증 완료 토큰 (값: 인증된 전화번호)
+    public static String signupVerified(String tokenHash) {
+        return "signup:verified:" + tokenHash;
+    }
+
+    // 번호별 일일 SMS 발송 횟수
+    public static String smsDaily(String phone) {
+        return "sms:daily:" + phone;
+    }
+
+    // IP별 인증번호 요청 횟수
+    public static String smsIp(String ip) {
+        return "sms:ip:" + ip;
+    }
+
+    // refresh 토큰 (해시, 로그인 유지 여부). 기기별로 하나
+    public static String refresh(Long userId, String deviceId) {
+        return "refresh:" + userId + ":" + deviceId;
+    }
+
+    // 로그인 실패 횟수 (전화번호별)
+    public static String loginFail(String phone) {
+        return "login:fail:" + phone;
+    }
 }

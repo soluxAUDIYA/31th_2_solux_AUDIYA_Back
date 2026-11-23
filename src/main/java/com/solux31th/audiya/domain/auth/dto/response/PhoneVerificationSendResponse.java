@@ -1,4 +1,4 @@
 package com.solux31th.audiya.domain.auth.dto.response;
 
-public class PhoneVerificationSendResponse {
+public record PhoneVerificationSendResponse(int expiresInSeconds, int resendAvailableInSeconds) {
 }
