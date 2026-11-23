@@ -54,11 +54,7 @@ public class PhoneVerificationService {
 
         // IP별 요청 횟수 제한: 번호를 바꿔가며 요청하는 대량 발송을 막는다
         String ipKey = RedisKey.smsIp(clientIp);
-        Long ipCount = redis.opsForValue().increment(ipKey);
-        if (ipCount != null && ipCount == 1L) {
-            redis.expire(ipKey, IP_WINDOW);
-        }
-        if (ipCount != null && ipCount > IP_LIMIT) {
+        if (incrementWithExpire(ipKey, IP_WINDOW) > IP_LIMIT) {
             throw new BusinessException(CommonErrorCode.TOO_MANY_REQUESTS);
         }
 
@@ -105,10 +101,7 @@ public class PhoneVerificationService {
         }
 
         // 발송에 성공한 경우에만 일일 횟수를 올린다
-        Long count = redis.opsForValue().increment(dailyKey);
-        if (count != null && count == 1L) {
-            redis.expire(dailyKey, DAILY_WINDOW);
-        }
+        incrementWithExpire(dailyKey, DAILY_WINDOW);
 
         return new PhoneVerificationSendResponse((int) CODE_TTL.toSeconds(), (int) RESEND_INTERVAL.toSeconds());
     }
@@ -156,5 +149,11 @@ public class PhoneVerificationService {
     // 6자리 숫자는 해시만으로는 약해서 전화번호를 섞어 저장하고, 실패 횟수 제한으로 보완한다
     private String hashCode(String phone, String code) {
         return CryptoUtil.sha256Hex(phone + ":" + code);
+    }
+
+    private long incrementWithExpire(String key, Duration ttl) {
+        redis.opsForValue().setIfAbsent(key, "0", ttl);
+        Long count = redis.opsForValue().increment(key);
+        return count == null ? 0 : count;
     }
 }
