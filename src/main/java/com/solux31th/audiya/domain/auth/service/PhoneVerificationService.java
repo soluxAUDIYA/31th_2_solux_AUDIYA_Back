@@ -17,6 +17,9 @@ import com.solux31th.audiya.global.util.CryptoUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
+import java.util.List;
 
 import java.time.Duration;
 import java.util.Map;
@@ -40,6 +43,10 @@ public class PhoneVerificationService {
     private static final int MAX_FAILS = 5;
     private static final Duration IP_WINDOW = Duration.ofHours(1);
     private static final int IP_LIMIT = 20;
+    private static final long RESULT_OK = 0;
+    private static final long RESULT_EXPIRED = 1;
+    private static final long RESULT_MISMATCH = 2;
+    private static final long RESULT_EXCEEDED = 3;
 
     private static final String FIELD_CODE = "code";
     private static final String FIELD_FAILS = "fails";
@@ -109,36 +116,25 @@ public class PhoneVerificationService {
     // 가입 인증번호 확인 -> 인증 완료 토큰 발급
     public VerificationTokenResponse confirmSignupCode(PhoneVerificationConfirmRequest request) {
         String phone = request.phoneNumber();
-        String otpKey = RedisKey.signupOtp(phone);
 
-        Map<Object, Object> saved = redis.opsForHash().entries(otpKey);
-        String savedHash = (String) saved.get(FIELD_CODE);
-        if (savedHash == null || saved.get(FIELD_FAILS) == null) {
-            // 3분이 지났거나 발송 이력이 없거나, 값이 비정상인 경우: 남은 값을 지우고 만료로 처리한다
-            redis.delete(otpKey);
+        // 존재 확인, 횟수 확인, 비교, 삭제를 Redis에서 한 번에 처리한다 (동시 요청이 중간에 끼어들 수 없다)
+        Long result = redis.execute(
+                VERIFY_SCRIPT,
+                List.of(RedisKey.signupOtp(phone)),
+                hashCode(phone, request.code()),
+                String.valueOf(MAX_FAILS));
+
+        if (result == null || result == RESULT_EXPIRED) {
             throw new BusinessException(AuthErrorCode.CODE_EXPIRED);
         }
-
-        // 비교하기 전에 시도 횟수를 원자적으로 먼저 올린다 (동시 요청이 와도 비교는 최대 5회)
-        Long attempts = redis.opsForHash().increment(otpKey, FIELD_FAILS, 1);
-        if (attempts == null || attempts > MAX_FAILS) {
+        if (result == RESULT_MISMATCH) {
+            throw new BusinessException(AuthErrorCode.CODE_MISMATCH);
+        }
+        if (result == RESULT_EXCEEDED) {
             throw new BusinessException(AuthErrorCode.CODE_ATTEMPTS_EXCEEDED);
         }
 
-        if (!savedHash.equals(hashCode(phone, request.code()))) {
-            // 5회째 실패에서는 번호를 삭제해 재발송을 요구한다
-            if (attempts >= MAX_FAILS) {
-                redis.delete(otpKey);
-                throw new BusinessException(AuthErrorCode.CODE_ATTEMPTS_EXCEEDED);
-            }
-            throw new BusinessException(AuthErrorCode.CODE_MISMATCH);
-        }
-
-        // 삭제에 성공한 요청 하나만 토큰을 발급한다 (동시에 맞는 번호가 와도 토큰은 하나)
-        if (!Boolean.TRUE.equals(redis.delete(otpKey))) {
-            throw new BusinessException(AuthErrorCode.CODE_EXPIRED);
-        }
-
+        // 여기까지 오면 인증번호가 맞고 이미 삭제된 상태이며, 이 요청만 도달한다
         // 인증 완료 토큰은 이 전화번호에 묶어서 저장한다 (원문 대신 해시를 키로 사용)
         String token = CryptoUtil.randomToken();
         redis.opsForValue().set(RedisKey.signupVerified(CryptoUtil.sha256Hex(token)), phone, VERIFIED_TOKEN_TTL);
@@ -156,4 +152,31 @@ public class PhoneVerificationService {
         Long count = redis.opsForValue().increment(key);
         return count == null ? 0 : count;
     }
+
+    // 인증번호 확인을 Redis에서 한 번에 처리하는 스크립트
+    // KEYS[1]: 인증번호 키, ARGV[1]: 입력한 인증번호의 해시, ARGV[2]: 최대 실패 횟수
+    private static final RedisScript<Long> VERIFY_SCRIPT = new DefaultRedisScript<>("""
+        local code = redis.call('HGET', KEYS[1], 'code')
+        local fails = redis.call('HGET', KEYS[1], 'fails')
+        -- 키가 없거나 값이 비정상이면 만료로 처리한다 (남은 값은 지운다)
+        if not code or not fails then
+            redis.call('DEL', KEYS[1])
+            return 1
+        end
+        if tonumber(fails) >= tonumber(ARGV[2]) then
+            return 3
+        end
+        -- 맞으면 삭제하고 성공 (삭제와 비교가 한 번에 일어나므로 한 번만 성공한다)
+        if code == ARGV[1] then
+            redis.call('DEL', KEYS[1])
+            return 0
+        end
+        -- 틀리면 횟수를 올리고, 한도에 도달하면 삭제한다
+        local failed = redis.call('HINCRBY', KEYS[1], 'fails', 1)
+        if failed >= tonumber(ARGV[2]) then
+            redis.call('DEL', KEYS[1])
+            return 3
+        end
+        return 2
+        """, Long.class);
 }
