@@ -13,9 +13,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -58,6 +60,11 @@ public class AuthService {
         redis.delete(tokenKey);
 
         // 가입 직후에는 로그인 유지로 처리해서 refresh 토큰을 14일간 둔다
-        return tokenService.issueTokens(user, request.deviceId(), true);
+        AuthTokenResponse response = tokenService.issueTokens(user, request.deviceId(), true);
+
+        // 인증 완료 토큰은 토큰 발급까지 끝난 뒤에만 삭제한다 (실패하면 같은 토큰으로 다시 시도할 수 있다)
+        redis.delete(tokenKey);
+
+        return response;
     }
 }
