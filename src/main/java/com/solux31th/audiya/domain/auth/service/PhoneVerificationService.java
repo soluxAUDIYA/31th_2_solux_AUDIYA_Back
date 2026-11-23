@@ -120,31 +120,31 @@ public class PhoneVerificationService {
 
         Map<Object, Object> saved = redis.opsForHash().entries(otpKey);
         String savedHash = (String) saved.get(FIELD_CODE);
-        String savedFails = (String) saved.get(FIELD_FAILS);
-        if (savedHash == null || savedFails == null) {
+        if (savedHash == null || saved.get(FIELD_FAILS) == null) {
             // 3분이 지났거나 발송 이력이 없거나, 값이 비정상인 경우: 남은 값을 지우고 만료로 처리한다
             redis.delete(otpKey);
             throw new BusinessException(AuthErrorCode.CODE_EXPIRED);
         }
 
-        int fails = Integer.parseInt(savedFails);
-
-        if (fails >= MAX_FAILS) {
+        // 비교하기 전에 시도 횟수를 원자적으로 먼저 올린다 (동시 요청이 와도 비교는 최대 5회)
+        Long attempts = redis.opsForHash().increment(otpKey, FIELD_FAILS, 1);
+        if (attempts == null || attempts > MAX_FAILS) {
             throw new BusinessException(AuthErrorCode.CODE_ATTEMPTS_EXCEEDED);
         }
 
         if (!savedHash.equals(hashCode(phone, request.code()))) {
-            // 실패 횟수를 올리고, 5회째 실패에서는 번호를 삭제해 재발송을 요구한다
-            Long failed = redis.opsForHash().increment(otpKey, FIELD_FAILS, 1);
-            if (failed != null && failed >= MAX_FAILS) {
+            // 5회째 실패에서는 번호를 삭제해 재발송을 요구한다
+            if (attempts >= MAX_FAILS) {
                 redis.delete(otpKey);
                 throw new BusinessException(AuthErrorCode.CODE_ATTEMPTS_EXCEEDED);
             }
             throw new BusinessException(AuthErrorCode.CODE_MISMATCH);
         }
 
-        // 인증번호는 1회용이므로 성공하면 삭제한다
-        redis.delete(otpKey);
+        // 삭제에 성공한 요청 하나만 토큰을 발급한다 (동시에 맞는 번호가 와도 토큰은 하나)
+        if (!Boolean.TRUE.equals(redis.delete(otpKey))) {
+            throw new BusinessException(AuthErrorCode.CODE_EXPIRED);
+        }
 
         // 인증 완료 토큰은 이 전화번호에 묶어서 저장한다 (원문 대신 해시를 키로 사용)
         String token = CryptoUtil.randomToken();
