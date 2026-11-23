@@ -84,9 +84,10 @@ public class PhoneVerificationService {
         // 새 번호를 저장하면 기존 번호와 실패 횟수가 함께 초기화된다
         String otpKey = RedisKey.signupOtp(phone);
         String code = CryptoUtil.randomCode6();
-        redis.delete(otpKey);
-        redis.opsForHash().put(otpKey, FIELD_CODE, hashCode(phone, code));
-        redis.opsForHash().put(otpKey, FIELD_FAILS, "0");
+        // 인증번호와 실패 횟수를 한 번에 저장해서 둘 중 하나만 있는 상태를 만들지 않는다 (기존 값은 덮어쓴다)
+        redis.opsForHash().putAll(otpKey, Map.of(
+                FIELD_CODE, hashCode(phone, code),
+                FIELD_FAILS, "0"));
         redis.expire(otpKey, CODE_TTL);
 
         // 재전송은 새 요청이므로 requestKey를 매번 새로 만든다
@@ -118,17 +119,20 @@ public class PhoneVerificationService {
         String otpKey = RedisKey.signupOtp(phone);
 
         Map<Object, Object> saved = redis.opsForHash().entries(otpKey);
-        if (saved.isEmpty()) {
-            // 3분이 지났거나 발송 이력이 없는 경우
+        String savedHash = (String) saved.get(FIELD_CODE);
+        String savedFails = (String) saved.get(FIELD_FAILS);
+        if (savedHash == null || savedFails == null) {
+            // 3분이 지났거나 발송 이력이 없거나, 값이 비정상인 경우: 남은 값을 지우고 만료로 처리한다
+            redis.delete(otpKey);
             throw new BusinessException(AuthErrorCode.CODE_EXPIRED);
         }
 
-        int fails = Integer.parseInt((String) saved.get(FIELD_FAILS));
+        int fails = Integer.parseInt(savedFails);
+
         if (fails >= MAX_FAILS) {
             throw new BusinessException(AuthErrorCode.CODE_ATTEMPTS_EXCEEDED);
         }
 
-        String savedHash = (String) saved.get(FIELD_CODE);
         if (!savedHash.equals(hashCode(phone, request.code()))) {
             // 실패 횟수를 올리고, 5회째 실패에서는 번호를 삭제해 재발송을 요구한다
             Long failed = redis.opsForHash().increment(otpKey, FIELD_FAILS, 1);
