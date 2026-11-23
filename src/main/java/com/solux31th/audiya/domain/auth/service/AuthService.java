@@ -9,19 +9,18 @@ import com.solux31th.audiya.domain.auth.repository.UserRepository;
 import com.solux31th.audiya.global.exception.BusinessException;
 import com.solux31th.audiya.global.util.CryptoUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -30,6 +29,7 @@ public class AuthService {
     private final TokenService tokenService;
 
     // 회원가입
+    @Transactional
     public AuthTokenResponse signup(SignupRequest request) {
         if (!request.password().equals(request.passwordConfirm())) {
             throw new BusinessException(AuthErrorCode.PASSWORD_MISMATCH);
@@ -60,9 +60,7 @@ public class AuthService {
             throw new BusinessException(AuthErrorCode.PHONE_ALREADY_REGISTERED);
         }
 
-        // 인증 완료 토큰은 1회용이므로 가입이 끝나면 삭제한다
-        redis.delete(tokenKey);
-
+        // 가입 직후에는 로그인 유지로 처리해서 refresh 토큰을 14일간 둔다
         AuthTokenResponse response = tokenService.issueTokens(user, request.deviceId(), true);
 
         // 인증 완료 토큰은 DB 커밋이 성공한 뒤에만 삭제한다 (커밋이 실패하면 같은 토큰으로 다시 시도할 수 있다)
