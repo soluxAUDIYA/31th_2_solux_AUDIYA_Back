@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Tag(name = "Auth", description = "인증 API")
 @RestController
@@ -27,8 +28,9 @@ public class AuthController {
     @Operation(summary = "가입 인증번호 발송", description = "재전송도 같은 API를 호출")
     @PostMapping("/signup/phone-verifications")
     public ApiResponse<PhoneVerificationSendResponse> sendSignupCode(
-            @Valid @RequestBody PhoneVerificationRequest request) {
-        return ApiResponse.ok(phoneVerificationService.sendSignupCode(request));
+            @Valid @RequestBody PhoneVerificationRequest request,
+            HttpServletRequest httpRequest) {
+        return ApiResponse.ok(phoneVerificationService.sendSignupCode(request, httpRequest.getRemoteAddr()));
     }
 
     // 가입 인증번호 확인

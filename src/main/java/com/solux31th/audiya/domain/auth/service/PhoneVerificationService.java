@@ -38,6 +38,8 @@ public class PhoneVerificationService {
     private static final Duration VERIFIED_TOKEN_TTL = Duration.ofMinutes(30);
     private static final int DAILY_LIMIT = 10;
     private static final int MAX_FAILS = 5;
+    private static final Duration IP_WINDOW = Duration.ofHours(1);
+    private static final int IP_LIMIT = 20;
 
     private static final String FIELD_CODE = "code";
     private static final String FIELD_FAILS = "fails";
@@ -47,8 +49,18 @@ public class PhoneVerificationService {
     private final StringRedisTemplate redis;
 
     // 가입 인증번호 발송
-    public PhoneVerificationSendResponse sendSignupCode(PhoneVerificationRequest request) {
+    public PhoneVerificationSendResponse sendSignupCode(PhoneVerificationRequest request, String clientIp) {
         String phone = request.phoneNumber();
+
+        // IP별 요청 횟수 제한: 번호를 바꿔가며 요청하는 대량 발송을 막는다
+        String ipKey = RedisKey.smsIp(clientIp);
+        Long ipCount = redis.opsForValue().increment(ipKey);
+        if (ipCount != null && ipCount == 1L) {
+            redis.expire(ipKey, IP_WINDOW);
+        }
+        if (ipCount != null && ipCount > IP_LIMIT) {
+            throw new BusinessException(CommonErrorCode.TOO_MANY_REQUESTS);
+        }
 
         // 이미 가입된 번호는 거절
         if (userRepository.existsByPhoneNumber(phone)) {

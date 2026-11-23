@@ -24,4 +24,9 @@ public final class RedisKey {
     public static String smsDaily(String phone) {
         return "sms:daily:" + phone;
     }
+
+    // IP별 인증번호 요청 횟수
+    public static String smsIp(String ip) {
+        return "sms:ip:" + ip;
+    }
 }
