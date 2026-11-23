@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import com.solux31th.audiya.domain.auth.entity.User;
 import com.solux31th.audiya.global.entity.BaseTimeEntity;
+import lombok.Getter;
 
 @Getter
 @Entity
@@ -38,18 +39,18 @@ public class Contact extends BaseTimeEntity {
   private User user;
 
   protected Contact() {} // JPA 기본 생성자
-  
+
   public Contact(User user, String name, String phoneNumber, Integer priority) {
     this.user = user;
     this.name = name;
     this.phoneNumber = phoneNumber;
     this.priority = priority;
   }
-  
+
   // 연락처 수정
   public void updateContact(String name, String phoneNumber) {
     if (!this.phoneNumber.equals(phoneNumber)) {
-        this.isVerified = false;
+      this.isVerified = false;
     }
     this.name = name;
     this.phoneNumber = phoneNumber;

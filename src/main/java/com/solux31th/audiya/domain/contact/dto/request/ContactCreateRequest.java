@@ -1,4 +1,14 @@
 package com.solux31th.audiya.domain.contact.dto.request;
 
-public class ContactCreateRequest {
-}
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record ContactCreateRequest(
+  @NotBlank
+  @Size(max = 50)
+  String name,
+
+  @NotBlank
+  @Size(max = 15)
+  String phoneNumber
+) {}
