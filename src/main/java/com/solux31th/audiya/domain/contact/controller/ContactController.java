@@ -1,6 +1,5 @@
 package com.solux31th.audiya.domain.contact.controller;
 
-import com.solux31th.audiya.domain.auth.entity.User;
 import com.solux31th.audiya.domain.contact.dto.request.ContactCreateRequest;
 import com.solux31th.audiya.domain.contact.dto.request.ContactUpdateRequest;
 import com.solux31th.audiya.domain.contact.dto.response.ContactResponse;
@@ -29,76 +28,78 @@ public class ContactController {
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public ApiResponse<ContactResponse> createContact(
-    @AuthenticationPrincipal User user,
+    @AuthenticationPrincipal Long userId,
     @Valid @RequestBody ContactCreateRequest request
   ) {
-    requireUser(user);
+    if (userId == null) {
+      throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
+    }
 
     return ApiResponse.of(
       SuccessCode.CREATED,
-      contactService.createContact(user, request)
+      contactService.createContact(userId, request)
     );
   }
 
   @GetMapping
   public ApiResponse<List<ContactResponse>> getContacts(
-    @AuthenticationPrincipal User user
+    @AuthenticationPrincipal Long userId
   ) {
-    requireUser(user);
+    requireUser(userId);
 
-    return ApiResponse.ok(contactService.getContacts(user));
+    return ApiResponse.ok(contactService.getContacts(userId));
   }
 
   @PutMapping("/{contactId}")
   public ApiResponse<ContactResponse> updateContact(
-    @AuthenticationPrincipal User user,
+    @AuthenticationPrincipal Long userId,
     @PathVariable("contactId") Long contactId,
     @Valid @RequestBody ContactUpdateRequest request
   ) {
-    requireUser(user);
+    requireUser(userId);
 
     return ApiResponse.ok(
-      contactService.updateContact(user, contactId, request)
+      contactService.updateContact(userId, contactId, request)
     );
   }
 
   @DeleteMapping("/{contactId}")
   public ApiResponse<Void> deleteContact(
-    @AuthenticationPrincipal User user,
+    @AuthenticationPrincipal Long userId,
     @PathVariable("contactId") Long contactId
   ) {
-    requireUser(user);
+    requireUser(userId);
 
-    contactService.deleteContact(user, contactId);
+    contactService.deleteContact(userId, contactId);
 
     return ApiResponse.ok();
   }
 
   @PatchMapping("/{contactId}/sms-setting")
   public ApiResponse<ContactResponse> updateSmsSetting(
-    @AuthenticationPrincipal User user,
+    @AuthenticationPrincipal Long userId,
     @PathVariable("contactId") Long contactId,
     @Valid @RequestBody ContactSmsSettingUpdateRequest request
   ) {
-    requireUser(user);
+    requireUser(userId);
 
     return ApiResponse.ok(
-      contactService.updateSmsSetting(user, contactId, request)
+      contactService.updateSmsSetting(userId, contactId, request)
     );
   }
 
   @PatchMapping("/{contactId}/priority")
   public ApiResponse<ContactResponse> updatePriority(
-    @AuthenticationPrincipal User user,
+    @AuthenticationPrincipal Long userId,
     @PathVariable("contactId") Long contactId,
     @Valid @RequestBody ContactPriorityUpdateRequest request
   ) {
-    requireUser(user);
-    return ApiResponse.ok(contactService.updatePriority(user, contactId, request));
+    requireUser(userId);
+    return ApiResponse.ok(contactService.updatePriority(userId, contactId, request));
   }
 
-  private void requireUser(User user) {
-    if (user == null) {
+  private void requireUser(Long userId) {
+    if (userId == null) {
       throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
     }
   }
