@@ -1,4 +1,3 @@
 package com.solux31th.audiya.domain.guardian.dto;
-
-public record GuardianSessionResponse() {
-}
+import java.time.Instant;
+public record GuardianSessionResponse(boolean authenticated, String scope, Instant expiresAt) {}
